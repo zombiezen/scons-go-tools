@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import posixpath
 import subprocess
 
 from SCons.Action import Action
@@ -17,16 +18,19 @@ def _subdict(d, keys):
 
 def _go_scan_func(node, env, paths):
     package_paths = env['GOLIBPATH'] + [env['GOPKGROOT']]
-    source_imports = _run_helper(env, ['-mode=imports', str(node)]).splitlines()
+    source_imports = _run_helper(env, ['-mode=imports', node.rstr()]).splitlines()
     result = []
     for package_name in source_imports:
         if package_name.startswith("./"):
             result.append(env.File(package_name))
             continue
+        # Search for import
+        package_dir, package_name = posixpath.split(package_name)
+        subpaths = [posixpath.join(p, package_dir) for p in package_paths]
         # Check for a static library
         package = env.FindFile(
             package_name + os.path.extsep + 'a',
-            package_paths,
+            subpaths,
         )
         if package is not None:
             result.append(package)
@@ -34,7 +38,7 @@ def _go_scan_func(node, env, paths):
         # Check for a build result
         package = env.FindFile(
             package_name + os.path.extsep + env['GOARCHNAME'],
-            package_paths,
+            subpaths,
         )
         if package is not None:
             result.append(package)
