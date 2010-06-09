@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#   __init__.py
+#   go.py
 #   SCons Go Tools
 #   
 #   Copyright (c) 2010, Ross Light.
