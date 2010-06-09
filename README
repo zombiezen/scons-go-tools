@@ -1,0 +1,67 @@
+******************
+  SCons Go Tools
+******************
+
+SCons Go Tools is a collection of tools that makes it easy to compile Go_
+projects in SCons_.
+
+.. _Go: http://golang.org/
+.. _SCons: http://www.scons.org/
+
+================
+  Installation
+================
+
+Download and extract the latest release of SCons Go Tools from the project
+homepage, then run the build-helper.sh script in the root directory.  Once
+you've done that, copy the go.py script into the site_tools subdirectory of your
+site_scons directory.
+
+If you don't have a site_scons directory yet, you will need to create one.  By
+default, SCons looks for the site_scons directory in the current directory.  If
+you only need to use this for one project, just create a site_scons at the root
+of your project source and that will work fine.  For other setups, consult the
+SCons documentation.
+
+=========
+  Usage
+=========
+
+Once the tools are installed, using them in your SConstruct file is easy::
+
+	# SConstruct
+	env = Environment(TOOLS=['default', 'go'])
+	
+	# A simple program
+	env.GoProgram('foo', 'src/foo.go')
+	
+	# A multi-package program
+	bar = env.Go('bar', 'src/bar.go')
+	env.Go('baz', ['src/baz1.go', 'src/baz2.go'])
+	env.GoProgram('bar', bar)
+	
+.. Note::
+	You don't specify all of the object files when you go to link a program.
+	The Go linker does this for you automatically; however, the SCons Go Tools
+	are smart enough to determine the dependencies as well, so the program will
+	always be rebuilt when one of the packages changes.
+
+===============
+  Environment
+===============
+
+The SCons Go Tools use the following parameters set in the Environment object:
+
+GOCOMPILER
+	The path to the `gc`_ program for this platform.
+
+GOLINKER
+	The path to the `ld`_ program for this platform.
+
+GOLIBPATH
+	A list of paths that will be searched for imports (this is used for both
+	compiling and linking, since you will usually be using the same place for
+	both)
+
+.. _gc: http://golang.org/cmd/gc/
+.. _ld: http://golang.org/cmd/ld/
