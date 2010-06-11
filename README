@@ -23,6 +23,20 @@ you only need to use this for one project, just create a site_scons at the root
 of your project source and that will work fine.  For other setups, consult the
 SCons documentation.
 
+=============
+  Embedding
+=============
+
+If you want to use SCons Go Tools in your own project, but you aren't sure
+whether your end-users will have the tools installed, you can embed the tools
+into your project's source tree.  Simply copy the SCons Go Tools directory into
+site_scons/site_tools at your project's root.  Make sure that the SCons Go
+Tools directory is named ``go``, or your SConstruct file won't be able to find
+it.
+
+When embedded, SCons Go Tools will automatically build the scons-go-helper tool
+if it is not present on the system.
+
 =========
   Usage
 =========
