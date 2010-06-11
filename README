@@ -41,10 +41,11 @@ Once the tools are installed, using them in your SConstruct file is easy::
 	env.GoProgram('bar', bar)
 	
 .. Note::
-	You don't specify all of the object files when you go to link a program.
-	The Go linker does this for you automatically; however, the SCons Go Tools
-	are smart enough to determine the dependencies as well, so the program will
-	always be rebuilt when one of the packages changes.
+    You don't specify all of the object files when you go to link a program;
+    just the one that contains the main function.  The Go linker does this for
+    you automatically; however, the SCons Go Tools are smart enough to
+    determine the dependencies as well, so the program will always be rebuilt
+    when one of the packages changes.
 
 ===============
   Environment
