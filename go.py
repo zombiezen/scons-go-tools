@@ -132,6 +132,22 @@ go_linker = Builder(
 
 # HELPER TOOL
 
+def _get_PATH(env):
+    if isinstance(env['ENV']['PATH'], (list, tuple)):
+        return list(env['ENV']['PATH'])
+    else:
+        return env['ENV']['PATH'].split(os.path.pathsep)
+
+def _get_gobin():
+    try:
+        return os.environ['GOBIN']
+    except KeyError:
+        home = os.environ.get('HOME')
+        if home:
+            return os.path.join(home, 'bin')
+        else:
+            return None
+
 def _parse_config(data):
     result = {}
     for line in data.splitlines():
@@ -139,13 +155,24 @@ def _parse_config(data):
         result[name] = value
     return result
 
+def _install_helper(location):
+    tool_dir = os.path.dirname(__file__)
+    subprocess.call(
+        [os.path.join(tool_dir, 'build-helper.sh'), location],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=None,
+        cwd=tool_dir,
+    )
+
 def _run_helper(env, args):
     if 'GOHELPER' not in env:
         helper = _find_helper(env)
         if helper is None:
             raise RuntimeError("Can't find SCons Go helper")
-        env['GOHELPER'] = str(helper)
-    proc = subprocess.Popen([env['GOHELPER']] + list(args),
+        env['GOHELPER'] = helper.abspath
+    proc = subprocess.Popen(
+        [env['GOHELPER']] + list(args),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -155,11 +182,11 @@ def _run_helper(env, args):
     return stdout
 
 def _find_helper(env):
-    paths = list(env['ENV']['PATH'])
-    if 'GOBIN' in os.environ:
-        paths = [os.environ['GOBIN']] + paths
-    else:
-        paths = [os.path.join(os.environ['HOME'], 'bin')] + paths
+    paths = _get_PATH(env)
+    paths.insert(0, env.GetLaunchDir())
+    gobin = _get_gobin()
+    if gobin:
+        paths.insert(0, gobin)
     return env.FindFile('scons-go-helper', paths)
 
 # API
@@ -167,6 +194,10 @@ def _find_helper(env):
 def generate(env):
     if 'HOME' not in env['ENV']:
         env['ENV']['HOME'] = os.environ['HOME']
+    # Ensure that we have the helper
+    if _find_helper(env) is None:
+        _install_helper(os.path.join(env.GetLaunchDir(), 'scons-go-helper'))
+    # Now set up the environment
     config = _parse_config(_run_helper(env, []))
     env.Append(ENV=_subdict(config, ['GOROOT', 'GOOS', 'GOARCH', 'GOBIN']))
     env['GOCOMPILER'] = config['gc']
@@ -183,4 +214,22 @@ def generate(env):
     )
 
 def exists(env):
-    return _find_helper(env) is not None
+    if _find_helper(env) is not None:
+        return True
+    else:
+        # Check to see whether we have the build script handy
+        build_script = os.path.join(os.path.dirname(__file__), 'build-helper.sh')
+        if not os.path.exists(build_script):
+            return False
+        # The required environment variables must be present
+        for evar in ('GOROOT', 'GOOS', 'GOARCH'):
+            if evar not in os.environ:
+                return False
+        # Check for the compiler and linker
+        gobin = _get_gobin()
+        if not gobin:
+            return False
+        archs = {'amd64': '6', '386': '8', 'arm': '5'}
+        gc_path = os.path.join(gobin, archs[os.environ['GOARCH']] + 'g')
+        ld_path = os.path.join(gobin, archs[os.environ['GOARCH']] + 'l')
+        return os.path.exists(gc_path) and os.path.exists(ld_path)
