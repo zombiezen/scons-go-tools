@@ -33,22 +33,40 @@
 #   POSSIBILITY OF SUCH DAMAGE.
 #
 
+# Determine architecture
 case "$GOARCH" in
 	"amd64" ) ARCHPREFIX="6";;
 	"386"   ) ARCHPREFIX="8";;
 	"arm"   ) ARCHPREFIX="5";;
 	* )
-		echo "Unrecognized or unset GOARCH"
+		echo "Unrecognized or unset GOARCH" 1>&2
 		exit 1
 	;;
 esac
 
-GC="${ARCHPREFIX}g"
-LD="${ARCHPREFIX}l"
+# Determine tool paths
+if [ "$GOBIN" = "" ]
+    then export GOBIN="${HOME}/bin"
+fi
 
-$GC helper.go || { echo "**Compile failed" ; exit 1; }
-$LD -o scons-go-helper helper.$ARCHPREFIX || { echo "**Linking failed" ; exit 1; }
+GC="${GOBIN}/${ARCHPREFIX}g"
+LD="${GOBIN}/${ARCHPREFIX}l"
 
-GOBIN=`scons-go-helper -value GOBIN`
+if [[ -e "$GC" && -e "$LD" ]]
+then
+    # Build it!
+    TEMPDIR="`mktemp -d -t scons-go-helper.XXXXXX`" || { echo "**Couldn't create temporary directory" 1>&2 ; exit 1 ; }
+    $GC -o "${TEMPDIR}/helper.$ARCHPREFIX" helper.go || { echo "**Compile failed" 1>&2 ; exit 1 ; }
+    $LD -o "${TEMPDIR}/scons-go-helper" "${TEMPDIR}/helper.$ARCHPREFIX" || { echo "**Linking failed" 1>&2 ; exit 1 ; }
+else
+    echo "**Toolset not found" 1>&2
+    exit 1
+fi
 
-cp scons-go-helper "$GOBIN"
+# Copy helper to designated directory (defaults to GOBIN)
+if [ $# -eq 0 ]
+then
+    cp "${TEMPDIR}/scons-go-helper" "$GOBIN/scons-go-helper"
+else
+    cp "${TEMPDIR}/scons-go-helper" "$1"
+fi
