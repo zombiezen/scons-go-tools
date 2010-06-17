@@ -33,21 +33,35 @@
 #   POSSIBILITY OF SUCH DAMAGE.
 #
 
+clean_tempdir()
+{
+    if [[ ! -z "$TEMPDIR" && -e "$TEMPDIR" ]]
+        then rm -rf "$TEMPDIR"
+    fi
+}
+
+crash()
+{
+    echo "$1" 1>&2
+    clean_tempdir
+    exit 1
+}
+
 # Determine architecture
 case "$GOARCH" in
 	"amd64" ) ARCHPREFIX="6";;
 	"386"   ) ARCHPREFIX="8";;
 	"arm"   ) ARCHPREFIX="5";;
 	* )
-		echo "Unrecognized or unset GOARCH" 1>&2
-		exit 1
+		crash "Unrecognized or unset GOARCH"
 	;;
 esac
 
 # Determine tool paths
-if [ "$GOBIN" = "" ]
-    then export GOBIN="${HOME}/bin"
+if [ -z "$GOBIN" ]
+    then GOBIN="${HOME}/bin"
 fi
+export GOBIN
 
 GC="${GOBIN}/${ARCHPREFIX}g"
 LD="${GOBIN}/${ARCHPREFIX}l"
@@ -55,18 +69,18 @@ LD="${GOBIN}/${ARCHPREFIX}l"
 if [[ -e "$GC" && -e "$LD" ]]
 then
     # Build it!
-    TEMPDIR="`mktemp -d -t scons-go-helper.XXXXXX`" || { echo "**Couldn't create temporary directory" 1>&2 ; exit 1 ; }
-    $GC -o "${TEMPDIR}/helper.$ARCHPREFIX" helper.go || { echo "**Compile failed" 1>&2 ; exit 1 ; }
-    $LD -o "${TEMPDIR}/scons-go-helper" "${TEMPDIR}/helper.$ARCHPREFIX" || { echo "**Linking failed" 1>&2 ; exit 1 ; }
+    TEMPDIR="`mktemp -d -t scons-go-helper`" || crash "**Couldn't create temporary directory"
+    $GC -o "${TEMPDIR}/helper.$ARCHPREFIX" helper.go || crash "**Compile failed"
+    $LD -o "${TEMPDIR}/scons-go-helper" "${TEMPDIR}/helper.$ARCHPREFIX" || crash "**Linking failed"
 else
-    echo "**Toolset not found" 1>&2
-    exit 1
+    crash "**Toolset not found"
 fi
 
 # Copy helper to designated directory (defaults to GOBIN)
-if [ $# -eq 0 ]
-then
-    cp "${TEMPDIR}/scons-go-helper" "$GOBIN/scons-go-helper"
-else
-    cp "${TEMPDIR}/scons-go-helper" "$1"
-fi
+dest=${1-"$GOBIN/scons-go-helper"}
+cp "${TEMPDIR}/scons-go-helper" "$dest" || crash "**Couldn't install helper"
+
+# Remove temporary directory
+clean_tempdir
+
+exit 0
