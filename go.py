@@ -155,22 +155,35 @@ def _parse_config(data):
         result[name] = value
     return result
 
+def _setup_helper(env):
+    # See if we can find a shared helper
+    helper_node = _find_helper(env)
+    if helper_node is None:
+        # None to be found.  Does the build script have a desirable place?
+        if 'GOHELPER' in env:
+            helper_node = env.File(env['GOHELPER'])
+        else:
+            # Stick it in the root project directory.
+            helper_node = env.Dir(env.GetLaunchDir()).File('scons-go-helper')
+    # If the helper doesn't exist, build it.
+    if not helper_node.exists():
+        helper_node.prepare()
+        _install_helper(helper_node.abspath)
+    env['GOHELPER'] = helper_node.abspath
+
 def _install_helper(location):
     tool_dir = os.path.dirname(__file__)
-    subprocess.call(
+    retcode = subprocess.call(
         [os.path.join(tool_dir, 'build-helper.sh'), location],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=None,
         cwd=tool_dir,
     )
+    if retcode != 0:
+        raise RuntimeError("Could not install Go helper")
 
 def _run_helper(env, args):
-    if 'GOHELPER' not in env:
-        helper = _find_helper(env)
-        if helper is None:
-            raise RuntimeError("Can't find SCons Go helper")
-        env['GOHELPER'] = helper.abspath
     proc = subprocess.Popen(
         [env['GOHELPER']] + list(args),
         stdin=subprocess.PIPE,
@@ -183,7 +196,6 @@ def _run_helper(env, args):
 
 def _find_helper(env):
     paths = _get_PATH(env)
-    paths.insert(0, env.GetLaunchDir())
     gobin = _get_gobin()
     if gobin:
         paths.insert(0, gobin)
@@ -195,8 +207,7 @@ def generate(env):
     if 'HOME' not in env['ENV']:
         env['ENV']['HOME'] = os.environ['HOME']
     # Ensure that we have the helper
-    if _find_helper(env) is None:
-        _install_helper(os.path.join(env.GetLaunchDir(), 'scons-go-helper'))
+    _setup_helper(env)
     # Now set up the environment
     config = _parse_config(_run_helper(env, []))
     env.Append(ENV=_subdict(config, ['GOROOT', 'GOOS', 'GOARCH', 'GOBIN']))
