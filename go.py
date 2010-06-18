@@ -160,8 +160,8 @@ def _setup_helper(env):
     helper_node = _find_helper(env)
     if helper_node is None:
         # None to be found.  Does the build script have a desirable place?
-        if 'GOHELPER' in env:
-            helper_node = env.File(env['GOHELPER'])
+        if 'GOLOCALHELPER' in env:
+            helper_node = env.File(env['GOLOCALHELPER'])
         else:
             # Stick it in the root project directory.
             helper_node = env.Dir(env.GetLaunchDir()).File('scons-go-helper')
