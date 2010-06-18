@@ -44,7 +44,10 @@ import (
 	"path"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
+	"unicode"
+	"utf8"
 )
 
 func buildConfig() (config map[string]string) {
@@ -103,6 +106,33 @@ func extractImports(fileNode *ast.File) <-chan *ast.ImportSpec {
 	return ch
 }
 
+func extractTests(fileNode *ast.File) <-chan *ast.FuncDecl {
+	ch := make(chan *ast.FuncDecl)
+	hasPrefix := func(s, prefix string) bool {
+		if !strings.HasPrefix(s, prefix) {
+			return false
+		}
+		rune, _ := utf8.DecodeRuneInString(s[len(prefix):])
+		return unicode.IsUpper(rune)
+	}
+	matches := func(name *ast.Ident) bool {
+		if !name.IsExported() {
+			return false
+		}
+		n := name.Name()
+		return hasPrefix(n, "Test") || hasPrefix(n, "Benchmark")
+	}
+	go func() {
+		defer close(ch)
+		for _, decl := range fileNode.Decls {
+			if fd, ok := decl.(*ast.FuncDecl); ok && matches(fd.Name) {
+				ch <- fd
+			}
+		}
+	}()
+	return ch
+}
+
 func parseArgs() <-chan *ast.File {
 	ch := make(chan *ast.File)
 	go func() {
@@ -149,6 +179,12 @@ func main() {
 	case "package":
 		for fileNode := range parseArgs() {
 			fmt.Println(fileNode.Name.Name())
+		}
+	case "tests":
+		for fileNode := range parseArgs() {
+			for decl := range extractTests(fileNode) {
+				fmt.Printf("%s.%s\n", fileNode.Name.Name(), decl.Name.Name())
+			}
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid mode: %s\n", mode)

@@ -40,6 +40,7 @@ import subprocess
 from SCons.Action import Action
 from SCons.Scanner import Scanner
 from SCons.Builder import Builder
+from SCons.Util import splitext
 
 def _subdict(d, keys):
     result = {}
@@ -201,6 +202,70 @@ def _find_helper(env):
         paths.insert(0, gobin)
     return env.FindFile('scons-go-helper', paths)
 
+# Testing
+
+def _get_package_info(env, node):
+    # Determine where to search from
+    file_name = splitext(node.name)[0]
+    directory_name = node.get_dir().name
+    package_name = _run_helper(env, ['-mode=package', node.abspath]).strip()
+    if package_name == directory_name:
+        search_node = node.get_dir()
+    elif package_name == file_name:
+        search_node = node
+    else:
+        raise ValueError("Package %s does not match file structure" % (package_name))
+    # Find import path
+    for path in env['GOLIBPATH']:
+        search_dir = env.Dir(path)
+        if search_node.is_under(search_dir):
+            return package_name, splitext(search_dir.rel_path(search_node))[0]
+    search_dir = env.Dir(env.GetLaunchDir())
+    if search_node.is_under(search_dir):
+        return package_name, "./" + splitext(search_dir.rel_path(search_node))[0]
+    else:
+        raise ValueError("Package %s not found in library path" % (package_name))
+
+def gotest(target, source, env):
+    f = open(str(target[0]), 'w')
+    try:
+        f.write("package main\n\n")
+        # Imports
+        f.write("import \"testing\"\n")
+        f.write("import (\n")
+        for snode in source:
+            package, path = _get_package_info(env, snode)
+            f.write("\t\"%s\"\n" % (path))
+        f.write(")\n\n")
+        # Find test names
+        names = _run_helper(env, ['-mode=tests'] + [str(s) for s in source]).splitlines()
+        test_names = [n for n in names if n.split('.')[1].startswith('Test')]
+        bench_names = [n for n in names if n.split('.')[1].startswith('Benchmark')]
+        # Test array
+        f.write("var tests = []testing.Test{\n")
+        for name in test_names:
+            f.write("\ttesting.Test{\"%s\", %s},\n" % (name, name))
+        f.write("}\n\n")
+        # Benchmark array
+        f.write("var benchmarks = []testing.Benchmark{\n")
+        for name in bench_names:
+            f.write("\ttesting.Benchmark{\"%s\", %s},\n" % (name, name))
+        f.write("}\n\n")
+        # Main function
+        f.write("func main() {\n")
+        f.write("\ttesting.Main(tests)\n")
+        f.write("\ttesting.RunBenchmarks(benchmarks)\n")
+        f.write("}\n")
+    finally:
+        f.close()
+
+go_tester = Builder(
+    action=gotest,
+    suffix='.go',
+    ensure_suffix=True,
+    src_suffix='.go',
+)
+
 # API
 
 def generate(env):
@@ -220,6 +285,7 @@ def generate(env):
         BUILDERS={
             'Go': go_compiler,
             'GoProgram': go_linker,
+            'GoTest': go_tester,
         },
         SCANNERS=[go_scanner],
     )
