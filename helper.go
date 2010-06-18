@@ -103,6 +103,23 @@ func extractImports(fileNode *ast.File) <-chan *ast.ImportSpec {
 	return ch
 }
 
+func parseArgs() <-chan *ast.File {
+	ch := make(chan *ast.File)
+	go func() {
+		defer close(ch)
+		for _, fname := range flag.Args() {
+			fileNode, err := parser.ParseFile(fname, nil, nil, 0)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", fname, err)
+				if fileNode == nil {
+					continue
+				}
+			}
+			ch <- fileNode
+		}
+	}()
+	return ch
+}
 
 func main() {
 	var mode string
@@ -123,18 +140,15 @@ func main() {
 			fmt.Println(v)
 		}
 	case "imports":
-		for _, fname := range flag.Args() {
-			fileNode, err := parser.ParseFile(fname, nil, nil, 0)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", fname, err)
-				if fileNode == nil {
-					continue
-				}
-			}
+		for fileNode := range parseArgs() {
 			for spec := range extractImports(fileNode) {
 				importPath, _ := strconv.Unquote(string(spec.Path.Value))
 				fmt.Println(importPath)
 			}
+		}
+	case "package":
+		for fileNode := range parseArgs() {
+			fmt.Println(fileNode.Name.Name())
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid mode: %s\n", mode)
