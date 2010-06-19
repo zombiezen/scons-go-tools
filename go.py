@@ -95,7 +95,7 @@ def gc(source, target, env, for_signature):
         flags += ['-I', include]
     sources = [str(s) for s in source]
     if env.get('GOSTRIPTESTS', False):
-        sources = [path for path in sources if not s.name.endswith('_test.go')]
+        sources = [path for path in sources if not path.endswith('_test.go')]
     target = str(target[0])
     args = [env['GOCOMPILER'], '-o', target] + flags + sources
     return Action([args])
