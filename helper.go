@@ -125,7 +125,7 @@ func extractTests(fileNode *ast.File) <-chan *ast.FuncDecl {
 	go func() {
 		defer close(ch)
 		for _, decl := range fileNode.Decls {
-			if fd, ok := decl.(*ast.FuncDecl); ok && matches(fd.Name) {
+			if fd, ok := decl.(*ast.FuncDecl); ok && fd.Recv == nil && matches(fd.Name) {
 				ch <- fd
 			}
 		}
