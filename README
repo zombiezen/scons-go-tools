@@ -2,7 +2,7 @@
   SCons Go Tools
 ******************
 
-SCons Go Tools is a collection of tools that makes it easy to compile Go_
+SCons Go Tools is a collection of builders that makes it easy to compile Go_
 projects in SCons_.
 
 .. _Go: http://golang.org/
