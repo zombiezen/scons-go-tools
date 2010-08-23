@@ -64,7 +64,7 @@ def _go_scan_func(node, env, paths):
     result = []
     for package_name in source_imports:
         if package_name.startswith("./"):
-            result.append(env.File(package_name))
+            result.append(env.File(package_name + _go_object_suffix(env, [])))
             continue
         # Search for import
         package_dir, package_name = posixpath.split(package_name)
