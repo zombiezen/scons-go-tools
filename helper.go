@@ -72,7 +72,7 @@ func getGOBIN() string {
 	if gobin := os.Getenv("GOBIN"); gobin != "" {
 		return gobin
 	}
-	return path.Join(os.Getenv("HOME"), "bin")
+	return path.Join(os.Getenv("GOROOT"), "bin")
 }
 
 func getPrefix() string {

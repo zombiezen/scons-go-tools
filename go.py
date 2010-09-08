@@ -155,7 +155,7 @@ def _get_gobin():
     except KeyError:
         home = os.environ.get('HOME')
         if home:
-            return os.path.join(home, 'bin')
+            return os.path.join(os.environ['GOROOT'], 'bin')
         else:
             return None
 
