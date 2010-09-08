@@ -61,6 +61,24 @@ Once the tools are installed, using them in your SConstruct file is easy::
     determine the dependencies as well, so the program will always be rebuilt
     when one of the packages changes.
 
+===========
+  Testing
+===========
+
+If you want to use gotest-style unit tests in your project, SCons Go Tools
+allows you to easily collect them and produce a test program::
+
+    # SConstruct
+    env = Environment(TOOLS=['default', 'go'])
+    env['GOSTRIPTESTS'] = False
+    mypackage = env.Go('mypackage.go', 'mypackage_test.go')
+    env.GoProgram('runtests', env.GoTest('tests.go', mypackage))
+
+This will collect all of the functions whose name starts with ``Test`` in the
+mypackage package and make a source file called ``tests.go``.  ``tests.go`` is
+compiled and linked into a program called ``runtests``, which you can then run
+from the command line to run your unit tests.
+
 ===============
   Environment
 ===============
@@ -77,6 +95,10 @@ GOLIBPATH
 	A list of paths that will be searched for imports (this is used for both
 	compiling and linking, since you will usually be using the same place for
 	both)
+
+GOSTRIPTESTS
+    Whether to ignore Go source files that end in ``_test.go``.  Defaults to
+    False.
 
 .. _gc: http://golang.org/cmd/gc/
 .. _ld: http://golang.org/cmd/ld/
