@@ -59,7 +59,7 @@ esac
 
 # Determine tool paths
 if [ -z "$GOBIN" ]
-    then GOBIN="${HOME}/bin"
+    then GOBIN="${GOROOT}/bin"
 fi
 export GOBIN
 
