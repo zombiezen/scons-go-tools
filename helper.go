@@ -119,7 +119,7 @@ func extractTests(fileNode *ast.File) <-chan *ast.FuncDecl {
 		if !name.IsExported() {
 			return false
 		}
-		n := name.Name()
+		n := name.Name
 		return hasPrefix(n, "Test") || hasPrefix(n, "Benchmark")
 	}
 	go func() {
@@ -138,7 +138,7 @@ func parseArgs() <-chan *ast.File {
 	go func() {
 		defer close(ch)
 		for _, fname := range flag.Args() {
-			fileNode, err := parser.ParseFile(fname, nil, nil, 0)
+			fileNode, err := parser.ParseFile(fname, nil, 0)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", fname, err)
 				if fileNode == nil {
@@ -178,12 +178,12 @@ func main() {
 		}
 	case "package":
 		for fileNode := range parseArgs() {
-			fmt.Println(fileNode.Name.Name())
+			fmt.Println(fileNode.Name.Name)
 		}
 	case "tests":
 		for fileNode := range parseArgs() {
 			for decl := range extractTests(fileNode) {
-				fmt.Printf("%s.%s\n", fileNode.Name.Name(), decl.Name.Name())
+				fmt.Printf("%s.%s\n", fileNode.Name.Name, decl.Name.Name)
 			}
 		}
 	default:
