@@ -200,7 +200,6 @@ def _run_helper(env, args):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env=env['ENV'],
     )
     stdout, stderr = proc.communicate()
     return stdout
