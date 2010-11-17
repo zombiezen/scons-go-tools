@@ -54,6 +54,11 @@ Once the tools are installed, using them in your SConstruct file is easy::
 	env.Go('baz', ['src/baz1.go', 'src/baz2.go'])
 	env.GoProgram('bar', bar)
 	
+	# Cross-compiling
+	windowsEnv = env.Clone()
+	windowsEnv.GoTarget('windows', '386')
+	windowsEnv.GoProgram('test.exe', 'src/testwindows.go')
+	
 .. Note::
     You don't specify all of the object files when you go to link a program;
     just the one that contains the main function.  The Go linker does this for

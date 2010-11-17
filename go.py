@@ -44,7 +44,10 @@ from SCons.Builder import Builder
 def _subdict(d, keys):
     result = {}
     for key in keys:
-        result[key] = d[key]
+        try:
+            result[key] = d[key]
+        except KeyError:
+            pass
     return result
 
 def splitext(path):
@@ -55,6 +58,39 @@ def splitext(path):
         return path, ''
     else:
         return path[:dot], path[dot:]
+
+# PLATFORMS
+
+_valid_platforms = frozenset((
+    ('darwin', '386'),
+    ('darwin', 'amd64'),
+    ('freebsd', '386'),
+    ('freebsd', 'amd64'),
+    ('linux', '386'),
+    ('linux', 'amd64'),
+    ('linux', 'arm'),
+    ('nacl', '386'),
+    ('windows', '386'),
+
+))
+_archs = {'amd64': '6', '386': '8', 'arm': '5'}
+
+def _get_platform_info(env, goos, goarch):
+    info = {}
+    if (goos, goarch) not in _valid_platforms:
+        raise ValueError("Unrecognized platform: %s, %s" % (goos, goarch))
+    info['archname'] = _archs[goarch]
+    info['pkgroot'] = os.path.join(env['ENV']['GOROOT'], 'pkg', goos + '_' + goarch)
+    info['gc'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'g')
+    info['ld'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'l')
+    return info
+
+def _get_host_platform(env):
+    newenv = env.Clone()
+    newenv['ENV'].pop('GOOS', None)
+    newenv['ENV'].pop('GOARCH', None)
+    config = _parse_config(_run_goenv(newenv))
+    return config['GOOS'], config['GOARCH']
 
 # COMPILER
 
@@ -163,6 +199,8 @@ def _parse_config(data):
     result = {}
     for line in data.splitlines():
         name, value = line.split('=', 1)
+        if name.startswith('export '):
+            name = name[len('export '):]
         result[name] = value
     return result
 
@@ -210,6 +248,17 @@ def _find_helper(env):
     if gobin:
         paths.insert(0, gobin)
     return env.FindFile('scons-go-helper', paths)
+
+def _run_goenv(env):
+    proc = subprocess.Popen(
+        ['make', '--no-print-directory', '-f', 'Make.inc', 'go-env'],
+        cwd=os.path.join(env['ENV']['GOROOT'], 'src'),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = proc.communicate()
+    return stdout
 
 # Testing
 
@@ -286,19 +335,29 @@ go_tester = Builder(
 
 # API
 
+def GoTarget(env, goos, goarch):
+    config = _get_platform_info(env, goos, goarch)
+    env['ENV']['GOOS'] = goos
+    env['ENV']['GOARCH'] = goarch
+    env['GOCOMPILER'] = config['gc']
+    env['GOLINKER'] = config['ld']
+    env['GOARCHNAME'] = config['archname']
+    env['GOPKGROOT'] = config['pkgroot']
+
 def generate(env):
     if 'HOME' not in env['ENV']:
         env['ENV']['HOME'] = os.environ['HOME']
     # Ensure that we have the helper
     _setup_helper(env)
     # Now set up the environment
-    config = _parse_config(_run_helper(env, []))
-    env.Append(ENV=_subdict(config, ['GOROOT', 'GOOS', 'GOARCH', 'GOBIN']))
-    env['GOCOMPILER'] = config['gc']
-    env['GOLINKER'] = config['ld']
+    env.Append(ENV=_subdict(os.environ, ['GOROOT', 'GOBIN']))
+    env.Append(ENV={'GOBIN': os.path.join(env['ENV']['GOROOT'], 'bin')})
     env['GOLIBPATH'] = []
-    env['GOARCHNAME'] = config['archname']
-    env['GOPKGROOT'] = config['pkgroot']
+    # Set up tools
+    env.AddMethod(GoTarget, 'GoTarget')
+    goos, goarch = _get_host_platform(env)
+    env.GoTarget(goos, goarch)
+    # Add builders and scanners
     env.Append(
         BUILDERS={
             'Go': go_compiler,
@@ -309,22 +368,4 @@ def generate(env):
     )
 
 def exists(env):
-    if _find_helper(env) is not None:
-        return True
-    else:
-        # Check to see whether we have the build script handy
-        build_script = os.path.join(os.path.dirname(__file__), 'build-helper.sh')
-        if not os.path.exists(build_script):
-            return False
-        # The required environment variables must be present
-        for evar in ('GOROOT', 'GOOS', 'GOARCH'):
-            if evar not in os.environ:
-                return False
-        # Check for the compiler and linker
-        gobin = _get_gobin()
-        if not gobin:
-            return False
-        archs = {'amd64': '6', '386': '8', 'arm': '5'}
-        gc_path = os.path.join(gobin, archs[os.environ['GOARCH']] + 'g')
-        ld_path = os.path.join(gobin, archs[os.environ['GOARCH']] + 'l')
-        return os.path.exists(gc_path) and os.path.exists(ld_path)
+    return True
