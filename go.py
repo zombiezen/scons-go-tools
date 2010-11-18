@@ -351,7 +351,7 @@ def generate(env):
     _setup_helper(env)
     # Now set up the environment
     env.Append(ENV=_subdict(os.environ, ['GOROOT', 'GOBIN']))
-    env.Append(ENV={'GOBIN': os.path.join(env['ENV']['GOROOT'], 'bin')})
+    env['ENV'].setdefault('GOBIN', os.path.join(env['ENV']['GOROOT'], 'bin'))
     env['GOLIBPATH'] = []
     # Set up tools
     env.AddMethod(GoTarget, 'GoTarget')
