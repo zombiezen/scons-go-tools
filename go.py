@@ -301,27 +301,28 @@ def gotest(target, source, env):
         f.write("package main\n\n")
         # Imports
         f.write("import \"testing\"\n")
+        f.write("import __regexp__ \"regexp\"\n")
         f.write("import (\n")
         for i, (import_path, used) in enumerate(import_list):
             if used:
                 f.write("\tt%04d \"%s\"\n" % (i, import_path))
         f.write(")\n\n")
         # Test array
-        f.write("var tests = []testing.Test{\n")
+        f.write("var tests = []testing.InternalTest{\n")
         for pkg_num, ident, name in tests:
-            f.write("\ttesting.Test{\"%s\", t%04d.%s},\n" %
+            f.write("\ttesting.InternalTest{\"%s\", t%04d.%s},\n" %
                 (name, pkg_num, ident))
         f.write("}\n\n")
         # Benchmark array
-        f.write("var benchmarks = []testing.Benchmark{\n")
+        f.write("var benchmarks = []testing.InternalBenchmark{\n")
         for pkg_num, ident, name in benchmarks:
-            f.write("\ttesting.Benchmark{\"%s\", t%04d.%s},\n" %
+            f.write("\ttesting.InternalBenchmark{\"%s\", t%04d.%s},\n" %
                 (name, pkg_num, ident))
         f.write("}\n\n")
         # Main function
         f.write("func main() {\n")
-        f.write("\ttesting.Main(tests)\n")
-        f.write("\ttesting.RunBenchmarks(benchmarks)\n")
+        f.write("\ttesting.Main(__regexp__.MatchString, tests)\n")
+        f.write("\ttesting.RunBenchmarks(__regexp__.MatchString, benchmarks)\n")
         f.write("}\n")
     finally:
         f.close()
