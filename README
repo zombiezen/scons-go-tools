@@ -43,28 +43,28 @@ if it is not present on the system.
 
 Once the tools are installed, using them in your SConstruct file is easy::
 
-	# SConstruct
-	env = Environment(TOOLS=['default', 'go'])
-	
-	# A simple program
-	env.GoProgram('foo', 'src/foo.go')
-	
-	# A multi-package program
-	bar = env.Go('bar', 'src/bar.go')
-	env.Go('baz', ['src/baz1.go', 'src/baz2.go'])
-	env.GoProgram('bar', bar)
-	
-	# Cross-compiling
-	windowsEnv = env.Clone()
-	windowsEnv.GoTarget('windows', '386')
-	windowsEnv.GoProgram('test.exe', 'src/testwindows.go')
-	
+   # SConstruct
+   env = Environment(TOOLS=['default', 'go'])
+   
+   # A simple program
+   env.GoProgram('foo', 'src/foo.go')
+   
+   # A multi-package program
+   bar = env.Go('bar', 'src/bar.go')
+   env.Go('baz', ['src/baz1.go', 'src/baz2.go'])
+   env.GoProgram('bar', bar)
+   
+   # Cross-compiling
+   windowsEnv = env.Clone()
+   windowsEnv.GoTarget('windows', '386')
+   windowsEnv.GoProgram('test.exe', 'src/testwindows.go')
+   
 .. Note::
-    You don't specify all of the object files when you go to link a program;
-    just the one that contains the main function.  The Go linker does this for
-    you automatically; however, the SCons Go Tools are smart enough to
-    determine the dependencies as well, so the program will always be rebuilt
-    when one of the packages changes.
+   You don't specify all of the object files when you go to link a program;
+   just the one that contains the main function.  The Go linker does this for
+   you automatically; however, the SCons Go Tools are smart enough to
+   determine the dependencies as well, so the program will always be rebuilt
+   when one of the packages changes.
 
 ===========
   Testing
@@ -91,15 +91,21 @@ from the command line to run your unit tests.
 The SCons Go Tools use the following parameters set in the Environment object:
 
 GOCOMPILER
-	The path to the `gc`_ program for this platform.
+   The path to the `gc`_ program for this platform.
+
+GO_GCFLAGS
+    Flags for `gc`_.
 
 GOLINKER
-	The path to the `ld`_ program for this platform.
+   The path to the `ld`_ program for this platform.
+
+GO_LDFLAGS
+   Flags for `ld`_.
 
 GOLIBPATH
-	A list of paths that will be searched for imports (this is used for both
-	compiling and linking, since you will usually be using the same place for
-	both)
+   A list of paths that will be searched for imports (this is used for both
+   compiling and linking, since you will usually be using the same place for
+   both)
 
 GOSTRIPTESTS
     Whether to ignore Go source files that end in ``_test.go``.  Defaults to
@@ -118,16 +124,16 @@ All rights reserved.
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
-	Redistributions of source code must retain the above copyright notice, this
-	list of conditions and the following disclaimer.
+   Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
 
-	Redistributions in binary form must reproduce the above copyright notice,
-	this list of conditions and the following disclaimer in the documentation
-	and/or other materials provided with the distribution.
+   Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
-	Neither the name of the SCons Go Tools nor the names of its contributors may
-	be used to endorse or promote products derived from this software without
-	specific prior written permission.
+   Neither the name of the SCons Go Tools nor the names of its contributors may
+   be used to endorse or promote products derived from this software without
+   specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -139,3 +145,5 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+.. vim: ft=rst sw=3 sts=3 et

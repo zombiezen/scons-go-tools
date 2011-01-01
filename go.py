@@ -129,6 +129,7 @@ def gc(source, target, env, for_signature):
     flags = []
     for include in env.get('GOLIBPATH', []):
         flags += ['-I', include]
+    flags += env.get('GO_GCFLAGS', [])
     sources = [str(s) for s in source]
     if env.get('GOSTRIPTESTS', False):
         sources = [path for path in sources if not path.endswith('_test.go')]
@@ -148,6 +149,7 @@ def ld(source, target, env, for_signature):
     flags = []
     for libdir in env.get('GOLIBPATH', []):
         flags += ['-L', libdir]
+    flags += env.get('GO_LDFLAGS', [])
     sources = [str(s) for s in source]
     target = str(target[0])
     args = [env['GOLINKER'], '-o', target] + flags + sources
