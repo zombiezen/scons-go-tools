@@ -102,6 +102,9 @@ GOLINKER
 GO_LDFLAGS
    Flags for `ld`_.
 
+GOASSEMBLER
+   The path to the assembler program.
+
 GOLIBPATH
    A list of paths that will be searched for imports (this is used for both
    compiling and linking, since you will usually be using the same place for

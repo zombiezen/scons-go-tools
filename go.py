@@ -83,6 +83,8 @@ def _get_platform_info(env, goos, goarch):
     info['pkgroot'] = os.path.join(env['ENV']['GOROOT'], 'pkg', goos + '_' + goarch)
     info['gc'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'g')
     info['ld'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'l')
+    info['as'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'a')
+    info['cc'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'c')
     return info
 
 def _get_host_platform(env):
@@ -177,6 +179,12 @@ go_linker = Builder(
     src_builder=go_compiler,
     single_source=True,
     source_scanner=Scanner(function=_ld_scan_func, recursive=True),
+)
+go_assembler=Builder(
+    action='$GOASSEMBLER -o $TARGET $SOURCE',
+    suffix=_go_object_suffix,
+    ensure_suffix=True,
+    src_suffix='.s',
 )
 
 # HELPER TOOL
@@ -344,6 +352,7 @@ def GoTarget(env, goos, goarch):
     env['ENV']['GOARCH'] = goarch
     env['GOCOMPILER'] = config['gc']
     env['GOLINKER'] = config['ld']
+    env['GOASSEMBLER'] = config['as']
     env['GOARCHNAME'] = config['archname']
     env['GOPKGROOT'] = config['pkgroot']
 
@@ -365,6 +374,7 @@ def generate(env):
         BUILDERS={
             'Go': go_compiler,
             'GoProgram': go_linker,
+            'GoAssembly': go_assembler,
             'GoTest': go_tester,
         },
         SCANNERS=[go_scanner],
