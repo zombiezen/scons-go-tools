@@ -85,6 +85,7 @@ def _get_platform_info(env, goos, goarch):
     info['ld'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'l')
     info['as'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'a')
     info['cc'] = os.path.join(env['ENV']['GOBIN'], info['archname'] + 'c')
+    info['pack'] = os.path.join(env['ENV']['GOBIN'], 'gopack')
     return info
 
 def _get_host_platform(env):
@@ -143,7 +144,7 @@ def _ld_scan_func(node, env, path):
     obj_suffix = os.path.extsep + env['GOARCHNAME']
     result = []
     for child in node.children():
-        if str(child).endswith(obj_suffix):
+        if str(child).endswith(obj_suffix) or str(child).endswith('.a'):
             result.append(child)
     return result
 
@@ -185,6 +186,11 @@ go_assembler=Builder(
     suffix=_go_object_suffix,
     ensure_suffix=True,
     src_suffix='.s',
+)
+gopack = Builder(
+    action='rm -f $TARGET ; $GOPACK gcr $TARGET $SOURCES',
+    suffix='.a',
+    ensure_suffix=True,
 )
 
 # HELPER TOOL
@@ -292,7 +298,12 @@ def gotest(target, source, env):
     tests = []
     benchmarks = []
     for i, snode in enumerate(source):
-        source_files = [str(s) for s in snode.sources if s.name.endswith('_test.go')]
+        if str(snode).endswith('.a'):
+            source_files = []
+            for source_obj in snode.sources:
+                source_files += [str(s) for s in source_obj.sources if s.name.endswith('_test.go')]
+        else:
+            source_files = [str(s) for s in snode.sources if s.name.endswith('_test.go')]
         if not source_files:
             continue
         names = _run_helper(env, ['-mode=tests'] + source_files).splitlines()
@@ -353,6 +364,7 @@ def GoTarget(env, goos, goarch):
     env['GOCOMPILER'] = config['gc']
     env['GOLINKER'] = config['ld']
     env['GOASSEMBLER'] = config['as']
+    env['GOPACK'] = config['pack']
     env['GOARCHNAME'] = config['archname']
     env['GOPKGROOT'] = config['pkgroot']
 
@@ -375,6 +387,7 @@ def generate(env):
             'Go': go_compiler,
             'GoProgram': go_linker,
             'GoAssembly': go_assembler,
+            'GoPack': gopack,
             'GoTest': go_tester,
         },
         SCANNERS=[go_scanner],
