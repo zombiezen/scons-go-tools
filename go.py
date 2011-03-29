@@ -342,8 +342,7 @@ def gotest(target, source, env):
         f.write("}\n\n")
         # Main function
         f.write("func main() {\n")
-        f.write("\ttesting.Main(__regexp__.MatchString, tests)\n")
-        f.write("\ttesting.RunBenchmarks(__regexp__.MatchString, benchmarks)\n")
+        f.write("\ttesting.Main(__regexp__.MatchString, tests, benchmarks)\n")
         f.write("}\n")
     finally:
         f.close()
