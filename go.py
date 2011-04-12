@@ -35,6 +35,7 @@
 
 import os
 import posixpath
+import re
 import subprocess
 
 from SCons.Action import Action
@@ -71,7 +72,6 @@ _valid_platforms = frozenset((
     ('linux', 'arm'),
     ('nacl', '386'),
     ('windows', '386'),
-
 ))
 _archs = {'amd64': '6', '386': '8', 'arm': '5'}
 
@@ -97,11 +97,60 @@ def _get_host_platform(env):
 
 # COMPILER
 
+_package_pat = re.compile(r'package\s+(\w+)\s*;?', re.UNICODE)
+_spec_pat = re.compile(r'\s*(\.|\w+)?\s*\"(.*?)\"\s*;?', re.UNICODE)
+def _get_imports(node):
+    source = node.get_text_contents()
+    while source:
+        source = source.lstrip()
+        if source.startswith('//'):
+            source = _after_token(source, '\n')
+        elif source.startswith('/*'):
+            source = _after_token(source, '*/')
+        elif source.startswith('package') and source[7].isspace():
+            m = _package_pat.match(source)
+            if m:
+                source = source[m.end():]
+            else:
+                return
+        elif source.startswith('import') and not source[6].isalnum():
+            source = source[6:].lstrip()
+            if source.startswith('('):
+                # Compound import
+                source = source[1:]
+                while True:
+                    m = _spec_pat.match(source)
+                    if m:
+                        yield m.group(2)
+                        source = source[m.end():]
+                    else:
+                        break
+                source = source.lstrip()
+                if not source.startswith(')'):
+                    return
+                source = source[1:]
+            else:
+                # Single import
+                m = _spec_pat.match(source)
+                if m:
+                    yield m.group(2)
+                    source = source[m.end():]
+                else:
+                    return
+        else:
+            # Once we see any other statement, the imports are done.
+            return
+
+def _after_token(s, tok):
+    try:
+        return s[s.index(tok) + len(tok):]
+    except ValueError:
+        return ''
+
 def _go_scan_func(node, env, paths):
     package_paths = env['GOLIBPATH'] + [env['GOPKGROOT']]
-    source_imports = _run_helper(env, ['-mode=imports', node.rstr()]).splitlines()
     result = []
-    for package_name in source_imports:
+    for package_name in _get_imports(node):
         if package_name.startswith("./"):
             result.append(env.File(package_name + _go_object_suffix(env, [])))
             continue
