@@ -242,7 +242,7 @@ gopack = Builder(
     ensure_suffix=True,
 )
 
-# HELPER TOOL
+## CONFIGURATION
 
 def _get_PATH(env):
     if isinstance(env['ENV']['PATH'], (list, tuple)):
@@ -269,51 +269,6 @@ def _parse_config(data):
         result[name] = value
     return result
 
-def _setup_helper(env):
-    # See if we can find a shared helper
-    helper_node = _find_helper(env)
-    if helper_node is None:
-        # None to be found.  Does the build script have a desirable place?
-        if 'GOLOCALHELPER' in env:
-            helper_node = env.File(env['GOLOCALHELPER'])
-        else:
-            # Stick it in the root project directory.
-            helper_node = env.Dir(env.GetLaunchDir()).File('scons-go-helper')
-    # If the helper doesn't exist, build it.
-    if not helper_node.exists():
-        helper_node.prepare()
-        _install_helper(helper_node.abspath)
-    env['GOHELPER'] = helper_node.abspath
-
-def _install_helper(location):
-    tool_dir = os.path.dirname(__file__)
-    retcode = subprocess.call(
-        [os.path.join(tool_dir, 'build-helper.sh'), location],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=None,
-        cwd=tool_dir,
-    )
-    if retcode != 0:
-        raise RuntimeError("Could not install Go helper")
-
-def _run_helper(env, args):
-    proc = subprocess.Popen(
-        [env['GOHELPER']] + list(args),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    stdout, stderr = proc.communicate()
-    return stdout
-
-def _find_helper(env):
-    paths = _get_PATH(env)
-    gobin = _get_gobin()
-    if gobin:
-        paths.insert(0, gobin)
-    return env.FindFile('scons-go-helper', paths)
-
 def _run_goenv(env):
     proc = subprocess.Popen(
         ['make', '--no-print-directory', '-f', 'Make.inc', 'go-env'],
@@ -325,7 +280,7 @@ def _run_goenv(env):
     stdout, stderr = proc.communicate()
     return stdout
 
-# Testing
+## TESTING
 
 def _get_package_info(env, node):
     package_name = splitext(node.name)[0]
@@ -341,23 +296,39 @@ def _get_package_info(env, node):
     else:
         raise ValueError("Package %s not found in library path" % (package_name))
 
+def _read_func_names(f):
+    magic = '\tfunc "".'
+    started = False
+    pkg = ''
+    for line in f:
+        if started:
+            if line.startswith(magic):
+                yield (pkg, line[len(magic):line.index(' ', len(magic))])
+            elif line.lstrip().startswith('package'):
+                pkg = line.split()[1]
+            elif line.startswith('$$'):
+                # We only want the first section
+                break
+        elif line.startswith('$$'):
+            started = True
+    f.close()
+
 def gotest(target, source, env):
     # Compile test information
     import_list = [[_get_package_info(env, snode)[1], False] for snode in source]
     tests = []
     benchmarks = []
     for i, snode in enumerate(source):
+        proc = None
+        # Start reading functions
         if str(snode).endswith('.a'):
-            source_files = []
-            for source_obj in snode.sources:
-                source_files += [str(s) for s in source_obj.sources if s.name.endswith('_test.go')]
+            proc = subprocess.Popen([env['GOPACK'], 'p', str(snode), '__.PKGDEF'], stdout=subprocess.PIPE)
+            names = _read_func_names(proc.stdout)
         else:
-            source_files = [str(s) for s in snode.sources if s.name.endswith('_test.go')]
-        if not source_files:
-            continue
-        names = _run_helper(env, ['-mode=tests'] + source_files).splitlines()
-        for name in names:
-            ident = name.split('.', 1)[1]
+            names = _read_func_names(open(str(snode)))
+        # Handle names
+        for (package, ident) in names:
+            name = package + '.' + ident
             info = (i, ident, name)
             if ident.startswith('Test'):
                 tests.append(info)
@@ -365,6 +336,11 @@ def gotest(target, source, env):
             elif ident.startswith('Bench'):
                 benchmarks.append(info)
                 import_list[i][1] = True # mark as used
+        # Wait on gopack subprocess
+        if proc is not None:
+            proc.wait()
+            if proc.returncode != 0:
+                return proc.returncode
     # Write out file
     f = open(str(target[0]), 'w')
     try:
@@ -419,8 +395,6 @@ def GoTarget(env, goos, goarch):
 def generate(env):
     if 'HOME' not in env['ENV']:
         env['ENV']['HOME'] = os.environ['HOME']
-    # Ensure that we have the helper
-    _setup_helper(env)
     # Now set up the environment
     env.Append(ENV=_subdict(os.environ, ['GOROOT', 'GOBIN']))
     env['ENV'].setdefault('GOBIN', os.path.join(env['ENV']['GOROOT'], 'bin'))

@@ -13,8 +13,7 @@ projects in SCons_.
 ================
 
 Download and extract the latest release of SCons Go Tools from the project
-homepage, then run the build-helper.sh script in the root directory.  Once
-you've done that, copy the go.py script into the site_tools subdirectory of your
+homepage, then copy the go.py script into the site_tools subdirectory of your
 site_scons directory.
 
 If you don't have a site_scons directory yet, you will need to create one.  By
@@ -33,9 +32,6 @@ into your project's source tree.  Simply copy the SCons Go Tools directory into
 site_scons/site_tools at your project's root.  Make sure that the SCons Go
 Tools directory is named ``go``, or your SConstruct file won't be able to find
 it.
-
-When embedded, SCons Go Tools will automatically build the scons-go-helper tool
-if it is not present on the system.
 
 =========
   Usage
