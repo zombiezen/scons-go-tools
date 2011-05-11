@@ -38,6 +38,7 @@ import posixpath
 import re
 import subprocess
 
+from SCons import Util
 from SCons.Action import Action
 from SCons.Scanner import Scanner
 from SCons.Builder import Builder
@@ -177,17 +178,11 @@ def _go_scan_func(node, env, paths):
 
 go_scanner = Scanner(function=_go_scan_func, skeys=['.go'])
 
-def gc(source, target, env, for_signature):
-    flags = []
-    for include in env.get('GOLIBPATH', []):
-        flags += ['-I', include]
-    flags += env.get('GO_GCFLAGS', [])
-    sources = [str(s) for s in source]
+def _gc_emitter(target, source, env):
     if env.get('GOSTRIPTESTS', False):
-        sources = [path for path in sources if not path.endswith('_test.go')]
-    target = str(target[0])
-    args = [env['GOCOMPILER'], '-o', target] + flags + sources
-    return Action([args])
+        return (target, [s for s in source if not str(s).endswith('_test.go')])
+    else:
+        return (target, source)
 
 def _ld_scan_func(node, env, path):
     obj_suffix = os.path.extsep + env['GOARCHNAME']
@@ -196,16 +191,6 @@ def _ld_scan_func(node, env, path):
         if str(child).endswith(obj_suffix) or str(child).endswith('.a'):
             result.append(child)
     return result
-
-def ld(source, target, env, for_signature):
-    flags = []
-    for libdir in env.get('GOLIBPATH', []):
-        flags += ['-L', libdir]
-    flags += env.get('GO_LDFLAGS', [])
-    sources = [str(s) for s in source]
-    target = str(target[0])
-    args = [env['GOLINKER'], '-o', target] + flags + sources
-    return Action([args])
 
 def _go_object_suffix(env, sources):
     return os.path.extsep + env['GOARCHNAME']
@@ -217,13 +202,14 @@ def _go_program_suffix(env, sources):
     return env['PROGSUFFIX']
 
 go_compiler = Builder(
-    generator=gc,
+    action='$GOCOMPILER -o $TARGET ${_concat("-I ", GOLIBPATH, "", __env__)} $GO_GCFLAGS $SOURCES',
+    emitter=_gc_emitter,
     suffix=_go_object_suffix,
     ensure_suffix=True,
     src_suffix='.go',
 )
 go_linker = Builder(
-    generator=ld,
+    action='$GOLINKER -o $TARGET ${_concat("-L ", GOLIBPATH, "", __env__)} $GO_LDFLAGS $SOURCE',
     prefix=_go_program_prefix,
     suffix=_go_program_suffix,
     src_builder=go_compiler,
