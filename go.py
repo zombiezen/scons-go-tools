@@ -149,7 +149,7 @@ def _after_token(s, tok):
         return ''
 
 def _go_scan_func(node, env, paths):
-    package_paths = env['GOLIBPATH'] + [env['GOPKGROOT']]
+    package_paths = env['GO_LIBPATH'] + [env['GO_PKGROOT']]
     result = []
     for package_name in _get_imports(node):
         if package_name.startswith("./"):
@@ -168,7 +168,7 @@ def _go_scan_func(node, env, paths):
             continue
         # Check for a build result
         package = env.FindFile(
-            package_name + os.path.extsep + env['GOARCHNAME'],
+            package_name + os.path.extsep + env['GO_ARCHNAME'],
             subpaths,
         )
         if package is not None:
@@ -179,13 +179,13 @@ def _go_scan_func(node, env, paths):
 go_scanner = Scanner(function=_go_scan_func, skeys=['.go'])
 
 def _gc_emitter(target, source, env):
-    if env.get('GOSTRIPTESTS', False):
+    if env.get('GO_STRIPTESTS', False):
         return (target, [s for s in source if not str(s).endswith('_test.go')])
     else:
         return (target, source)
 
 def _ld_scan_func(node, env, path):
-    obj_suffix = os.path.extsep + env['GOARCHNAME']
+    obj_suffix = os.path.extsep + env['GO_ARCHNAME']
     result = []
     for child in node.children():
         if str(child).endswith(obj_suffix) or str(child).endswith('.a'):
@@ -193,7 +193,7 @@ def _ld_scan_func(node, env, path):
     return result
 
 def _go_object_suffix(env, sources):
-    return os.path.extsep + env['GOARCHNAME']
+    return os.path.extsep + env['GO_ARCHNAME']
 
 def _go_program_prefix(env, sources):
     return env['PROGPREFIX']
@@ -202,14 +202,14 @@ def _go_program_suffix(env, sources):
     return env['PROGSUFFIX']
 
 go_compiler = Builder(
-    action='$GOCOMPILER -o $TARGET ${_concat("-I ", GOLIBPATH, "", __env__)} $GO_GCFLAGS $SOURCES',
+    action=Action('$GO_GCCOM', '$GO_GCCOMSTR'),
     emitter=_gc_emitter,
     suffix=_go_object_suffix,
     ensure_suffix=True,
     src_suffix='.go',
 )
 go_linker = Builder(
-    action='$GOLINKER -o $TARGET ${_concat("-L ", GOLIBPATH, "", __env__)} $GO_LDFLAGS $SOURCE',
+    action=Action('$GO_LDCOM', '$GO_LDCOMSTR'),
     prefix=_go_program_prefix,
     suffix=_go_program_suffix,
     src_builder=go_compiler,
@@ -217,13 +217,13 @@ go_linker = Builder(
     source_scanner=Scanner(function=_ld_scan_func, recursive=True),
 )
 go_assembler=Builder(
-    action='$GOASSEMBLER -o $TARGET $SOURCE',
+    action=Action('$GO_ACOM', '$GO_ACOMSTR'),
     suffix=_go_object_suffix,
     ensure_suffix=True,
     src_suffix='.s',
 )
 gopack = Builder(
-    action='rm -f $TARGET ; $GOPACK gcr $TARGET $SOURCES',
+    action=Action('$GO_PACKCOM', '$GO_PACKCOMSTR'),
     suffix='.a',
     ensure_suffix=True,
 )
@@ -271,7 +271,7 @@ def _run_goenv(env):
 def _get_package_info(env, node):
     package_name = splitext(node.name)[0]
     # Find import path
-    for path in env['GOLIBPATH']:
+    for path in env['GO_LIBPATH']:
         search_dir = env.Dir(path)
         if node.is_under(search_dir):
             return package_name, splitext(search_dir.rel_path(node))[0]
@@ -308,7 +308,7 @@ def gotest(target, source, env):
         proc = None
         # Start reading functions
         if str(snode).endswith('.a'):
-            proc = subprocess.Popen([env['GOPACK'], 'p', str(snode), '__.PKGDEF'], stdout=subprocess.PIPE)
+            proc = subprocess.Popen([env['GO_PACK'], 'p', str(snode), '__.PKGDEF'], stdout=subprocess.PIPE)
             names = _read_func_names(proc.stdout)
         else:
             names = _read_func_names(open(str(snode)))
@@ -359,7 +359,7 @@ def gotest(target, source, env):
         f.close()
 
 go_tester = Builder(
-    action=gotest,
+    action=Action(gotest, '$GO_TESTCOMSTR'),
     suffix='.go',
     ensure_suffix=True,
     src_suffix=_go_object_suffix,
@@ -371,12 +371,12 @@ def GoTarget(env, goos, goarch):
     config = _get_platform_info(env, goos, goarch)
     env['ENV']['GOOS'] = goos
     env['ENV']['GOARCH'] = goarch
-    env['GOCOMPILER'] = config['gc']
-    env['GOLINKER'] = config['ld']
-    env['GOASSEMBLER'] = config['as']
-    env['GOPACK'] = config['pack']
-    env['GOARCHNAME'] = config['archname']
-    env['GOPKGROOT'] = config['pkgroot']
+    env['GO_GC'] = config['gc']
+    env['GO_LD'] = config['ld']
+    env['GO_A'] = config['as']
+    env['GO_PACK'] = config['pack']
+    env['GO_ARCHNAME'] = config['archname']
+    env['GO_PKGROOT'] = config['pkgroot']
 
 def generate(env):
     if 'HOME' not in env['ENV']:
@@ -384,7 +384,6 @@ def generate(env):
     # Now set up the environment
     env.Append(ENV=_subdict(os.environ, ['GOROOT', 'GOBIN']))
     env['ENV'].setdefault('GOBIN', os.path.join(env['ENV']['GOROOT'], 'bin'))
-    env['GOLIBPATH'] = []
     # Set up tools
     env.AddMethod(GoTarget, 'GoTarget')
     goos, goarch = _get_host_platform(env)
@@ -399,6 +398,10 @@ def generate(env):
             'GoTest': go_tester,
         },
         SCANNERS=[go_scanner],
+        GO_GCCOM='$GO_GC -o $TARGET ${_concat("-I ", GO_LIBPATH, "", __env__)} $GO_GCFLAGS $SOURCES',
+        GO_LDCOM='$GO_LD -o $TARGET ${_concat("-L ", GO_LIBPATH, "", __env__)} $GO_LDFLAGS $SOURCE',
+        GO_ACOM='$GO_A -o $TARGET $SOURCE',
+        GO_PACKCOM='rm -f $TARGET ; $GO_PACK gcr $TARGET $SOURCES',
     )
 
 def exists(env):

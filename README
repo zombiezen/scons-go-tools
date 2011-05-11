@@ -71,7 +71,7 @@ allows you to easily collect them and produce a test program::
 
     # SConstruct
     env = Environment(TOOLS=['default', 'go'])
-    env['GOSTRIPTESTS'] = False
+    env['GO_STRIPTESTS'] = False
     mypackage = env.Go('mypackage.go', 'mypackage_test.go')
     env.GoProgram('runtests', env.GoTest('tests.go', mypackage))
 
@@ -86,27 +86,27 @@ from the command line to run your unit tests.
 
 The SCons Go Tools use the following parameters set in the Environment object:
 
-GOCOMPILER
+GO_GC
    The path to the `gc`_ program for this platform.
 
 GO_GCFLAGS
     Flags for `gc`_.
 
-GOLINKER
+GO_LD
    The path to the `ld`_ program for this platform.
 
 GO_LDFLAGS
    Flags for `ld`_.
 
-GOASSEMBLER
+GO_A
    The path to the assembler program.
 
-GOLIBPATH
+GO_LIBPATH
    A list of paths that will be searched for imports (this is used for both
    compiling and linking, since you will usually be using the same place for
    both)
 
-GOSTRIPTESTS
+GO_STRIPTESTS
     Whether to ignore Go source files that end in ``_test.go``.  Defaults to
     False.
 
