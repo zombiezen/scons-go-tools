@@ -179,7 +179,7 @@ def _go_scan_func(node, env, paths):
 go_scanner = Scanner(function=_go_scan_func, skeys=['.go'])
 
 def _gc_emitter(target, source, env):
-    if env.get('GO_STRIPTESTS', False):
+    if env['GO_STRIPTESTS']:
         return (target, [s for s in source if not str(s).endswith('_test.go')])
     else:
         return (target, source)
@@ -271,7 +271,7 @@ def _run_goenv(env):
 def _get_package_info(env, node):
     package_name = splitext(node.name)[0]
     # Find import path
-    for path in env['GO_LIBPATH']:
+    for path in env['GO_LIBPATH'] + [env['GO_PKGROOT']]:
         search_dir = env.Dir(path)
         if node.is_under(search_dir):
             return package_name, splitext(search_dir.rel_path(node))[0]
@@ -402,6 +402,8 @@ def generate(env):
         GO_LDCOM='$GO_LD -o $TARGET ${_concat("-L ", GO_LIBPATH, "", __env__)} $GO_LDFLAGS $SOURCE',
         GO_ACOM='$GO_A -o $TARGET $SOURCE',
         GO_PACKCOM='rm -f $TARGET ; $GO_PACK gcr $TARGET $SOURCES',
+        GO_LIBPATH=[],
+        GO_STRIPTESTS=False,
     )
 
 def exists(env):
